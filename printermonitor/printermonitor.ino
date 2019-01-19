@@ -60,12 +60,6 @@ OLEDDisplayUi   ui( &display );
 // #define DHTPIN D2 // NodeMCU
 #define DHTPIN D6 // Wemos D1R2 Mini
 #define DHTTYPE DHT22   // DHT22  (AM2302), AM2321
-
-// Initialize the temperature/ humidity sensor
-DHT dht(DHTPIN, DHTTYPE);
-float humidity = 0.0;
-float temperature = 0.0;
-
 char FormattedTemperature[10];
 char FormattedHumidity[10];
 
@@ -82,6 +76,11 @@ void drawClock(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16
 void drawWeather(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 void drawClockHeaderOverlay(OLEDDisplay *display, OLEDDisplayUiState* state);
 void drawIndoor(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
+
+// Initialize the temperature/ humidity sensor
+DHT dht(DHTPIN, DHTTYPE);
+float humidity = 0.0;
+float temperature = 0.0;
 
 // Set the number of Frames supported
 const int numberOfFrames = 4;
@@ -402,9 +401,6 @@ void loop() {
       printerClient.getPrinterPsuState();
       digitalWrite(externalLight, HIGH);
     }
-    if (readyForDHTUpdate && ui.getUiState()->frameState == FIXED) {
-       updateDHT();
-   }
   }
 
   checkDisplay(); // Check to see if the printer is on or offline and change display.
@@ -416,6 +412,9 @@ void loop() {
   }
   if (ENABLE_OTA) {
     ArduinoOTA.handle();
+  }
+  if (readyForDHTUpdate && ui.getUiState()->frameState == FIXED) {
+       updateDHT();
   }
 }
 
@@ -1048,6 +1047,10 @@ int8_t getWifiQuality() {
   }
 }
 
+void setReadyForDHTUpdate() {
+  Serial.println("Setting readyForDHTUpdate to true");
+  readyForDHTUpdate = true;
+}
 
 void writeSettings() {
   // Save decoded message to SPIFFS file for playback on power up.
@@ -1208,11 +1211,6 @@ int getMinutesFromLastRefresh() {
 int getMinutesFromLastDisplay() {
   int minutes = (timeClient.getCurrentEpoch() - displayOffEpoch) / 60;
   return minutes;
-}
-
-void setReadyForDHTUpdate() {
-  Serial.println("Setting readyForDHTUpdate to true");
-  readyForDHTUpdate = true;
 }
 
 // Toggle on and off the display if user defined times
