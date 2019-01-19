@@ -28,6 +28,8 @@ SOFTWARE.
  * Edit Settings.h for personalization
  ***********************************************/
 
+//gitmodem7
+
 #include "Settings.h"
 
 #define VERSION "2.4"
@@ -45,14 +47,30 @@ SOFTWARE.
 #define numberOfHours(_time_) (_time_ / SECS_PER_HOUR)
 
 // Initialize the oled display for I2C_DISPLAY_ADDRESS
-// SDA_PIN and SCL_PIN
+// SDA_PIN and SDC_PIN
 #if defined(DISPLAY_SH1106)
-  SH1106Wire     display(I2C_DISPLAY_ADDRESS, SDA_PIN, SCL_PIN);
+  SH1106Wire     display(I2C_DISPLAY_ADDRESS, SDA_PIN, SDC_PIN);
 #else
-  SSD1306Wire     display(I2C_DISPLAY_ADDRESS, SDA_PIN, SCL_PIN); // this is the default
+  SSD1306Wire     display(I2C_DISPLAY_ADDRESS, SDA_PIN, SDC_PIN); // this is the default
 #endif
 
 OLEDDisplayUi   ui( &display );
+
+// DHT Settings
+// #define DHTPIN D2 // NodeMCU
+#define DHTPIN D6 // Wemos D1R2 Mini
+#define DHTTYPE DHT22   // DHT22  (AM2302), AM2321
+
+// Initialize the temperature/ humidity sensor
+DHT dht(DHTPIN, DHTTYPE);
+float humidity = 0.0;
+float temperature = 0.0;
+
+char FormattedTemperature[10];
+char FormattedHumidity[10];
+
+// flag changed in the ticker function every 1 minute
+bool readyForDHTUpdate = false;
 
 void drawProgress(OLEDDisplay *display, int percentage, String label);
 void drawOtaProgress(unsigned int, unsigned int);
@@ -63,9 +81,10 @@ void drawHeaderOverlay(OLEDDisplay *display, OLEDDisplayUiState* state);
 void drawClock(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 void drawWeather(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 void drawClockHeaderOverlay(OLEDDisplay *display, OLEDDisplayUiState* state);
+void drawIndoor(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 
 // Set the number of Frames supported
-const int numberOfFrames = 3;
+const int numberOfFrames = 4;
 FrameCallback frames[numberOfFrames];
 FrameCallback clockFrame[2];
 boolean isClockOn = false;
@@ -383,6 +402,9 @@ void loop() {
       printerClient.getPrinterPsuState();
       digitalWrite(externalLight, HIGH);
     }
+    if (readyForDHTUpdate && ui.getUiState()->frameState == FIXED) {
+       updateDHT();
+   }
   }
 
   checkDisplay(); // Check to see if the printer is on or offline and change display.
@@ -825,6 +847,13 @@ void flashLED(int number, int delayTime) {
   }
 }
 
+// Called every 1 minute
+void updateDHT() {
+  humidity = dht.readHumidity();
+  temperature = dht.readTemperature(!IS_METRIC);
+  readyForDHTUpdate = false;
+}
+
 void drawScreen1(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
   display->setTextAlignment(TEXT_ALIGN_CENTER);
   display->setFont(ArialMT_Plain_16);
@@ -893,6 +922,15 @@ void drawWeather(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int
   display->drawString(0 + x, 24 + y, weatherClient.getCondition(0));
   display->setFont((const uint8_t*)Meteocons_Plain_42);
   display->drawString(86 + x, 0 + y, weatherClient.getWeatherIcon(0));
+}
+
+void drawIndoor(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+  display->setTextAlignment(TEXT_ALIGN_CENTER);
+  display->setFont(ArialMT_Plain_10);
+  display->drawString(64 + x, 0 + y, "Indoor");
+  display->setFont(ArialMT_Plain_16);
+  display->drawString(64 + x, 10 + y, String(temperature, 1) + "°C");
+  display->drawString(64 + x, 30 + y, String(humidity, 1) + "%");
 }
 
 String getTempSymbol() {
@@ -1172,6 +1210,11 @@ int getMinutesFromLastDisplay() {
   return minutes;
 }
 
+void setReadyForDHTUpdate() {
+  Serial.println("Setting readyForDHTUpdate to true");
+  readyForDHTUpdate = true;
+}
+
 // Toggle on and off the display if user defined times
 void checkDisplay() {
   if (!displayOn && DISPLAYCLOCK) {
@@ -1214,9 +1257,10 @@ void checkDisplay() {
         clockFrame[0] = drawClock;
       } else {
         ui.enableAutoTransition();
-        ui.setFrames(clockFrame, 2);
+        ui.setFrames(clockFrame, 3);
         clockFrame[0] = drawClock;
         clockFrame[1] = drawWeather;
+        clockFrame[2] = drawIndoor;
       }
       ui.setOverlays(clockOverlay, numberOfOverlays);
       isClockOn = true;
