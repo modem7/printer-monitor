@@ -63,6 +63,11 @@ OLEDDisplayUi   ui( &display );
 char FormattedTemperature[10];
 char FormattedHumidity[10];
 
+// Initialize the temperature/ humidity sensor
+DHT dht(DHTPIN, DHTTYPE);
+float humidity = 0.0;
+float temperature = 0.0;
+
 // flag changed in the ticker function every 1 minute
 bool readyForDHTUpdate = false;
 
@@ -76,11 +81,6 @@ void drawClock(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16
 void drawWeather(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 void drawClockHeaderOverlay(OLEDDisplay *display, OLEDDisplayUiState* state);
 void drawIndoor(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
-
-// Initialize the temperature/ humidity sensor
-DHT dht(DHTPIN, DHTTYPE);
-float humidity = 0.0;
-float temperature = 0.0;
 
 // Set the number of Frames supported
 const int numberOfFrames = 4;
@@ -269,8 +269,10 @@ void setup() {
   frames[0] = drawScreen1;
   frames[1] = drawScreen2;
   frames[2] = drawScreen3;
+  frames[3] = drawIndoor;
   clockFrame[0] = drawClock;
   clockFrame[1] = drawWeather;
+  clockFrame[2] = drawIndoor;
   ui.setOverlays(overlays, numberOfOverlays);
   
   // Inital UI takes care of initalising the display too.
@@ -385,6 +387,10 @@ void loop() {
     getUpdateTime();
   }
 
+  if (readyForDHTUpdate && ui.getUiState()->frameState == FIXED) {
+    updateDHT();
+  }
+
   if (lastMinute != timeClient.getMinutes() && !printerClient.isPrinting()) {
     // Check status every 60 seconds
     digitalWrite(externalLight, LOW);
@@ -412,9 +418,6 @@ void loop() {
   }
   if (ENABLE_OTA) {
     ArduinoOTA.handle();
-  }
-  if (readyForDHTUpdate && ui.getUiState()->frameState == FIXED) {
-       updateDHT();
   }
 }
 
@@ -849,7 +852,7 @@ void flashLED(int number, int delayTime) {
 // Called every 1 minute
 void updateDHT() {
   humidity = dht.readHumidity();
-  temperature = dht.readTemperature(!IS_METRIC);
+  temperature = dht.readTemperature(IS_METRIC);
   readyForDHTUpdate = false;
 }
 
@@ -965,6 +968,11 @@ String zeroPad(int value) {
   return rtnValue;
 }
 
+void setReadyForDHTUpdate() {
+  Serial.println("Setting readyForDHTUpdate to true");
+  readyForDHTUpdate = true;
+}
+
 void drawHeaderOverlay(OLEDDisplay *display, OLEDDisplayUiState* state) {
   display->setColor(WHITE);
   display->setFont(ArialMT_Plain_16);
@@ -1045,11 +1053,6 @@ int8_t getWifiQuality() {
   } else {
       return 2 * (dbm + 100);
   }
-}
-
-void setReadyForDHTUpdate() {
-  Serial.println("Setting readyForDHTUpdate to true");
-  readyForDHTUpdate = true;
 }
 
 void writeSettings() {
