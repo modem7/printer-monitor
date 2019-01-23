@@ -57,11 +57,12 @@ SOFTWARE.
 OLEDDisplayUi   ui( &display );
 
 // DHT Settings
-// #define DHTPIN D2 // NodeMCU
-#define DHTPIN D6 // Wemos D1R2 Mini
-#define DHTTYPE DHT22   // DHT22  (AM2302), AM2321
-char FormattedTemperature[10];
-char FormattedHumidity[10];
+#define DHTPIN D6     // what digital pin we're connected to. If you are not using NodeMCU change D6 to real pin
+
+// Uncomment whatever type you're using!
+//#define DHTTYPE DHT11   // DHT 11
+#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+//#define DHTTYPE DHT21   // DHT 21 (AM2301)
 
 // Initialize the temperature/ humidity sensor
 DHT dht(DHTPIN, DHTTYPE);
